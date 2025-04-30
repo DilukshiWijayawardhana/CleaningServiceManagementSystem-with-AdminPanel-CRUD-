@@ -4,9 +4,6 @@
 
 A full-stack web application that allows users to book cleaning services and manage their bookings. It also includes an **Admin Panel** for overseeing all bookings and managing service offerings. Features include user authentication, role-based access control (Admin & Customer), Joi validation, and secure password handling.
 
-## 🚀 Live Demo
-
-👉 [View Deployed App](https://your-deployment-link.com) <!-- Replace with actual Vercel/Netlify URL -->
 
 ---
 
