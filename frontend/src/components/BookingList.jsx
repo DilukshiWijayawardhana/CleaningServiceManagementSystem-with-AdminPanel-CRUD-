@@ -1,47 +1,57 @@
-import React, { useEffect, useState } from "react";
-import {
-  getBookings,
-  deleteBooking,
-  updateBooking,
-  createBooking,
-} from "../api/booking";
+import React from "react";
 import {
   Button,
   Paper,
-  Stack,
   Typography,
   Dialog,
   DialogTitle,
   DialogContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  CircularProgress,
+  Alert,
+  Box,
+  Tabs,
+  Tab,
 } from "@mui/material";
+import { Edit, Delete, Add } from "@mui/icons-material";
 import BookingForm from "./BookingForm";
 
-const BookingList = () => {
-  const [bookings, setBookings] = useState([]);
-  const [editingBooking, setEditingBooking] = useState(null);
-  const [openEditDialog, setOpenEditDialog] = useState(false);
-  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+const formatDate = (dateString) => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return dateString;
+  }
+};
 
-  const fetchBookings = async () => {
-    try {
-      const res = await getBookings();
-      setBookings(res.data);
-    } catch (error) {
-      console.error("Failed to fetch bookings:", error);
-    }
-  };
+const BookingList = ({
+  bookings,
+  loading,
+  error,
+  onRefresh,
+  onCreateBooking,
+  isAdmin = false,
+}) => {
+  const [editingBooking, setEditingBooking] = React.useState(null);
+  const [openEditDialog, setOpenEditDialog] = React.useState(false);
+  const [openCreateDialog, setOpenCreateDialog] = React.useState(false);
+  const [tabValue, setTabValue] = React.useState(0);
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
-
-  const handleDelete = async (id) => {
-    try {
-      await deleteBooking(id);
-      fetchBookings();
-    } catch (error) {
-      console.error("Failed to delete booking:", error);
-    }
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
 
   const handleEditClick = (booking) => {
@@ -54,53 +64,162 @@ const BookingList = () => {
     setOpenCreateDialog(true);
   };
 
-  const handleSubmit = async (formData) => {
+  const handleDeleteClick = async (bookingId) => {
     try {
-      if (editingBooking) {
-        await updateBooking(editingBooking.id, formData);
-      } else {
-        await createBooking(formData);
-      }
-      fetchBookings();
-      setOpenEditDialog(false);
-      setOpenCreateDialog(false);
+      await onCreateBooking(null, bookingId, true);
+      onRefresh();
     } catch (error) {
-      console.error("Failed to save booking:", error);
-      throw error; // This will be caught by BookingForm's error handling
+      console.error("Failed to delete booking:", error);
     }
   };
 
-  return (
-    <Stack spacing={2}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography variant="h5">Your Bookings</Typography>
-        <Button variant="contained" onClick={handleCreateClick}>
-          Create New Booking
-        </Button>
-      </Stack>
+  const handleSubmit = async (formData) => {
+    try {
+      if (editingBooking) {
+        await onCreateBooking(formData, editingBooking.id);
+      } else {
+        await onCreateBooking(formData);
+      }
+      setOpenEditDialog(false);
+      setOpenCreateDialog(false);
+      onRefresh();
+    } catch (error) {
+      console.error("Failed to save booking:", error);
+      throw error;
+    }
+  };
 
-      {bookings.map((booking) => (
-        <Paper key={booking.id} sx={{ padding: 2 }}>
-          <Typography>Customer: {booking.customerName}</Typography>
-          <Typography>Address: {booking.address}</Typography>
-          <Typography>
-            Date & Time: {new Date(booking.dateTime).toLocaleString()}
+  if (loading && !bookings?.length) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight={200}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error && !bookings?.length) {
+    return (
+      <Alert
+        severity="error"
+        sx={{ mb: 3 }}
+        action={
+          <Button color="inherit" size="small" onClick={onRefresh}>
+            Retry
+          </Button>
+        }
+      >
+        {error}
+      </Alert>
+    );
+  }
+
+  return (
+    <Box sx={{ width: "100%" }}>
+      {isAdmin && (
+        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+          <Tabs value={tabValue} onChange={handleTabChange}>
+            <Tab label="All Bookings" />
+            <Tab label="Statistics" />
+          </Tabs>
+        </Box>
+      )}
+
+      <Box display="flex" justifyContent="flex-end" mb={2}>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={handleCreateClick}
+          sx={{ mb: 2 }}
+        >
+          New Booking
+        </Button>
+      </Box>
+
+      {bookings?.length === 0 ? (
+        <Paper elevation={3} sx={{ p: 4, textAlign: "center" }}>
+          <Typography variant="h6" gutterBottom>
+            No Bookings Found
           </Typography>
-          <Typography>Service: {booking.service?.name}</Typography>
-          <Stack direction="row" spacing={1} mt={1}>
-            <Button variant="outlined" onClick={() => handleEditClick(booking)}>
-              Edit
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={() => handleDelete(booking.id)}
-            >
-              Delete
-            </Button>
-          </Stack>
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            {isAdmin
+              ? "There are no bookings in the system yet."
+              : "You don't have any bookings yet. Create your first booking now!"}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={handleCreateClick}
+          >
+            Create Booking
+          </Button>
         </Paper>
-      ))}
+      ) : (
+        <>
+          <TableContainer component={Paper} elevation={3}>
+            <Table sx={{ minWidth: 650 }} aria-label="bookings table">
+              <TableHead>
+                <TableRow>
+                  {isAdmin && <TableCell>User</TableCell>}
+                  <TableCell>Service</TableCell>
+                  <TableCell>Customer</TableCell>
+                  <TableCell>Date & Time</TableCell>
+                  <TableCell>Address</TableCell>
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {bookings.map((booking) => (
+                  <TableRow
+                    key={booking.id}
+                    hover
+                    sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
+                  >
+                    {isAdmin && (
+                      <TableCell>
+                        {booking.user?.username || "System"}
+                      </TableCell>
+                    )}
+                    <TableCell>{booking.service?.name || "N/A"}</TableCell>
+                    <TableCell>{booking.customerName}</TableCell>
+                    <TableCell>{formatDate(booking.dateTime)}</TableCell>
+                    <TableCell sx={{ maxWidth: 200 }}>
+                      {booking.address}
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        onClick={() => handleEditClick(booking)}
+                        aria-label="edit"
+                        color="primary"
+                        sx={{ mr: 1 }}
+                      >
+                        <Edit />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => handleDeleteClick(booking.id)}
+                        aria-label="delete"
+                        color="error"
+                      >
+                        <Delete />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {loading && (
+            <Box display="flex" justifyContent="center" mt={2}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+        </>
+      )}
 
       {/* Edit Dialog */}
       <Dialog
@@ -109,34 +228,19 @@ const BookingList = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Edit Booking</DialogTitle>
-        <DialogContent>
-          {editingBooking && (
-            <BookingForm
-              initialData={editingBooking}
-              onSubmit={handleSubmit}
-              onSuccess={() => setOpenEditDialog(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Dialog */}
-      <Dialog
-        open={openCreateDialog}
-        onClose={() => setOpenCreateDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Create New Booking</DialogTitle>
-        <DialogContent>
+        <DialogTitle>
+          {editingBooking ? "Edit Booking" : "Create Booking"}
+        </DialogTitle>
+        <DialogContent dividers>
           <BookingForm
+            initialData={editingBooking}
             onSubmit={handleSubmit}
-            onSuccess={() => setOpenCreateDialog(false)}
+            onCancel={() => setOpenEditDialog(false)}
+            isAdmin={isAdmin}
           />
         </DialogContent>
       </Dialog>
-    </Stack>
+    </Box>
   );
 };
 
