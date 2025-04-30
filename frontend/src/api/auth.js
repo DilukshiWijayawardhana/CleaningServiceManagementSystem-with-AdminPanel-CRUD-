@@ -6,6 +6,15 @@ export const login = async (data) => {
   return axios.post(`${API_URL}/login`, data);
 };
 
+// export const register = async (data) => {
+//   return axios.post(`${API_URL}/register`, data);
+// };
+
 export const register = async (data) => {
-  return axios.post(`${API_URL}/register`, data);
+  const response = await axios.post(`${API_URL}/register`, data);
+  // Make sure your backend returns token for admin registration
+  if (data.role === "ADMIN" && response.data.token) {
+    return response;
+  }
+  return response;
 };

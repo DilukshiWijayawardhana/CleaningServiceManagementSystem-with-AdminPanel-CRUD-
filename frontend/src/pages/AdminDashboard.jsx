@@ -4,7 +4,6 @@ import {
   Typography,
   Button,
   Paper,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -15,47 +14,52 @@ import {
   DialogTitle,
   DialogContent,
   TextField,
+  Box,
+  CircularProgress,
+  Alert,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import axios from "axios";
-import { getBookings, deleteBooking } from "../api/booking";
 
 const AdminDashboard = () => {
+  const [tabValue, setTabValue] = useState(0);
   const [bookings, setBookings] = useState([]);
   const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [openServiceDialog, setOpenServiceDialog] = useState(false);
   const [newService, setNewService] = useState("");
 
-  const fetchAllData = async () => {
+  const fetchAllBookings = async () => {
     try {
-      const [bookingsRes, servicesRes] = await Promise.all([
-        axios.get("http://localhost:4000/api/bookings/all", {
+      const response = await axios.get(
+        "http://localhost:4000/api/bookings/all",
+        {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }),
-        axios.get("http://localhost:4000/api/services"),
-      ]);
-      setBookings(bookingsRes.data);
-      setServices(servicesRes.data);
-    } catch (error) {
-      console.error("Failed to fetch data:", error);
+        }
+      );
+      setBookings(response.data);
+    } catch (err) {
+      setError("Failed to fetch bookings");
+      console.error(err);
     }
   };
 
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const handleDeleteBooking = async (id) => {
+  const fetchAllServices = async () => {
     try {
-      await deleteBooking(id);
-      fetchAllData();
-    } catch (error) {
-      console.error("Failed to delete booking:", error);
+      const response = await axios.get("http://localhost:4000/api/services");
+      setServices(response.data);
+    } catch (err) {
+      setError("Failed to fetch services");
+      console.error(err);
     }
   };
 
   const handleCreateService = async () => {
+    setLoading(true);
     try {
       await axios.post(
         "http://localhost:4000/api/services",
@@ -66,78 +70,142 @@ const AdminDashboard = () => {
           },
         }
       );
-      setOpenServiceDialog(false);
       setNewService("");
-      fetchAllData();
-    } catch (error) {
-      console.error("Failed to create service:", error);
+      setOpenServiceDialog(false);
+      fetchAllServices();
+    } catch (err) {
+      setError("Failed to create service");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchAllBookings();
+    fetchAllServices();
+  }, []);
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Stack direction="row" justifyContent="space-between" sx={{ mb: 4 }}>
-        <Typography variant="h4">Admin Dashboard</Typography>
-        <Button variant="contained" onClick={() => setOpenServiceDialog(true)}>
-          Create Service
-        </Button>
-      </Stack>
-
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        All Bookings
+      <Typography variant="h4" gutterBottom>
+        Admin Dashboard
       </Typography>
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Customer</TableCell>
-              <TableCell>Address</TableCell>
-              <TableCell>Date & Time</TableCell>
-              <TableCell>Service</TableCell>
-              <TableCell>User</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {bookings.map((booking) => (
-              <TableRow key={booking.id}>
-                <TableCell>{booking.customerName}</TableCell>
-                <TableCell>{booking.address}</TableCell>
-                <TableCell>
-                  {new Date(booking.dateTime).toLocaleString()}
-                </TableCell>
-                <TableCell>{booking.service?.name}</TableCell>
-                <TableCell>{booking.user?.username}</TableCell>
-                <TableCell>
-                  <Button
-                    color="error"
-                    onClick={() => handleDeleteBooking(booking.id)}
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+        <Tabs value={tabValue} onChange={handleTabChange}>
+          <Tab label="Bookings" />
+          <Tab label="Services" />
+        </Tabs>
+      </Box>
+
+      {tabValue === 0 && (
+        <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
+          <Typography variant="h5" gutterBottom>
+            All Bookings
+          </Typography>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Customer</TableCell>
+                  <TableCell>Address</TableCell>
+                  <TableCell>Date & Time</TableCell>
+                  <TableCell>Service</TableCell>
+                  <TableCell>User</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {bookings.map((booking) => (
+                  <TableRow key={booking.id}>
+                    <TableCell>{booking.id}</TableCell>
+                    <TableCell>{booking.customerName}</TableCell>
+                    <TableCell>{booking.address}</TableCell>
+                    <TableCell>
+                      {new Date(booking.dateTime).toLocaleString()}
+                    </TableCell>
+                    <TableCell>{booking.service?.name}</TableCell>
+                    <TableCell>{booking.user?.username}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      {tabValue === 1 && (
+        <Paper elevation={3} sx={{ p: 2 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+            <Typography variant="h5">Services</Typography>
+            <Button
+              variant="contained"
+              onClick={() => setOpenServiceDialog(true)}
+            >
+              Add Service
+            </Button>
+          </Box>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {services.map((service) => (
+                  <TableRow key={service.id}>
+                    <TableCell>{service.id}</TableCell>
+                    <TableCell>{service.name}</TableCell>
+                    <TableCell>
+                      {service.is_active ? "Active" : "Inactive"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
 
       <Dialog
         open={openServiceDialog}
         onClose={() => setOpenServiceDialog(false)}
       >
         <DialogTitle>Create New Service</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ p: 2, minWidth: 300 }}>
-            <TextField
-              label="Service Name"
-              value={newService}
-              onChange={(e) => setNewService(e.target.value)}
-            />
-            <Button variant="contained" onClick={handleCreateService}>
-              Create
+        <DialogContent sx={{ p: 3 }}>
+          <TextField
+            label="Service Name"
+            value={newService}
+            onChange={(e) => setNewService(e.target.value)}
+            fullWidth
+            sx={{ mb: 2 }}
+          />
+          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button onClick={() => setOpenServiceDialog(false)} sx={{ mr: 2 }}>
+              Cancel
             </Button>
-          </Stack>
+            <Button
+              variant="contained"
+              onClick={handleCreateService}
+              disabled={loading || !newService.trim()}
+            >
+              {loading ? <CircularProgress size={24} /> : "Create"}
+            </Button>
+          </Box>
         </DialogContent>
       </Dialog>
     </Container>

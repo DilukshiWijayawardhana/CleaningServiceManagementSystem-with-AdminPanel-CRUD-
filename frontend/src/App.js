@@ -9,6 +9,8 @@ import Navbar from "./components/Navbar";
 import CreateBooking from "./pages/CreateBooking";
 import Unauthorized from "./pages/Unauthorized";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminServices from "./pages/AdminServices"; // New component for service management
+import NotFound from "./pages/NotFound"; // New 404 page
 
 function App() {
   return (
@@ -48,9 +50,17 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin/services"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <AdminServices />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Fallback route - you might want to add a proper 404 page later */}
-        <Route path="*" element={<Home />} />
+        {/* Fallback route */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   );

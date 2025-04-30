@@ -26,14 +26,22 @@ const Register = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // In your Register.jsx, modify the handleSubmit function:
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      await register(formData);
-      navigate("/login");
+      const response = await register(formData);
+      // If admin registration, navigate to admin dashboard directly
+      if (formData.role === "ADMIN") {
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+        navigate("/admin");
+      } else {
+        navigate("/login");
+      }
     } catch (error) {
       setError(error.response?.data?.message || "Registration failed!");
     } finally {
